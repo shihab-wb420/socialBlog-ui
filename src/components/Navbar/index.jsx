@@ -63,8 +63,8 @@ console.log("resp",response)
       <Link to="/" style={linkStyle}>
         Feed
       </Link>
-      <Link to="/signup" style={linkStyle}>
-        Signup
+      <Link to="/messenger" style={linkStyle}>
+        Messenger
       </Link>
       <Link to="/login" style={linkStyle}>
         Login
@@ -74,4 +74,4 @@ console.log("resp",response)
   );
 };
 
-export default Navbar;
+export default Navbar; 
