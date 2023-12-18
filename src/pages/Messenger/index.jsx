@@ -1,73 +1,87 @@
-import React, { useState, useEffect } from 'react';
-import io from 'socket.io-client';
+import React, { useState, useEffect, useRef } from 'react'
+import io from 'socket.io-client'
 
-const apiUrl = "http://localhost:4040";
-const socket = io(`${apiUrl}`);
+const apiUrl = 'http://localhost:4040'
+const socket = io(`${apiUrl}`)
 
 const Messenger = () => {
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [users, setUsers] = useState([])
+  const [currentUser, setCurrentUser] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [newMessage, setNewMessage] = useState('')
+  const joinedRef = useRef(false)
 
-  const currentUserId = currentUser?._id;
-  const selectedUserId = selectedUser?._id;
+  const currentUserId = currentUser?._id
+  const selectedUserId = selectedUser?._id
 
   const getUsers = async () => {
     try {
-      const localUserInfo = localStorage.getItem('userInfo');
-      const parsedLocalUserInfo = localUserInfo ? JSON.parse(localUserInfo) : null;
-      setCurrentUser(parsedLocalUserInfo?.user);
+      const localUserInfo = localStorage.getItem('userInfo')
+      const parsedLocalUserInfo = localUserInfo
+        ? JSON.parse(localUserInfo)
+        : null
+      setCurrentUser(parsedLocalUserInfo?.user)
 
-      const response = await fetch(`${apiUrl}/api/v1/users/get`);
-      const userList = await response.json();
-      const updatedUsers = userList.filter(user => user?._id !== parsedLocalUserInfo?.user?._id);
-      setUsers(updatedUsers);
+      const response = await fetch(`${apiUrl}/api/v1/users/get`)
+      const userList = await response.json()
+      const updatedUsers = userList.filter(
+        (user) => user?._id !== parsedLocalUserInfo?.user?._id
+      )
+      setUsers(updatedUsers)
     } catch (error) {
-      console.error("Error:", error);
+      console.error('Error:', error)
     }
-  };
+  }
 
   useEffect(() => {
-    getUsers();
+    getUsers()
     // Clean up the socket connection when the component unmounts
     return () => {
       //socket.emit('disconnect');
-      socket.off(); // Turn off all event listeners
-    };
-  }, []);
+      // socket.off() // Turn off all event listeners
+    }
+  }, [])
 
   useEffect(() => {
-    if (selectedUserId) {
-      socket.emit('join', { sender: currentUserId, receiver: selectedUserId });
+    if (!selectedUserId) {
+      socket.emit('leave', currentUserId)
+    } else {
+      socket.emit('join', currentUserId, (data) => {
+        setMessages(data)
+        console.log({ data })
+      })
     }
 
-    const handleIncomingMessage = (message) => {
-      setMessages(prevMessages => [...prevMessages, message]);
-    };
+    if (joinedRef.current) return
+    socket.on('message', handleIncomingMessage)
+    joinedRef.current = true
+  }, [currentUserId, selectedUserId])
 
-    socket.on('message', handleIncomingMessage);
-
-    // Clhen the user selection changes or component unmounts
-    return () => {
-     /* socket.emit('disconnect', { sender: currentUserId, receiver: selectedUserId });
-      socket.off('message', handleIncomingMessage);*/
-    };
-  }, [selectedUserId, currentUserId]);
+  const handleIncomingMessage = (message) => {
+    console.log('message', message)
+    setMessages((prevMessages) => [...prevMessages, message])
+  }
 
   const sendMessage = () => {
     if (newMessage.trim() !== '' && selectedUserId) {
-      socket.emit('message', { sender: currentUserId, receiver: selectedUserId, text: newMessage });
-      setNewMessage('');
+      const message = {
+        sender: currentUserId,
+        receiver: selectedUserId,
+        text: newMessage,
+      }
+
+      socket.emit('message', message)
+      setMessages((prevMessages) => [...prevMessages, message])
+      setNewMessage('')
     }
-  };
+  }
 
   const handleUserClick = (user) => {
-    setSelectedUser(user); 
-    console.log("selectedUserId",selectedUserId)
-    setMessages([]); // Clear messages when changing the selected user
-  };
+    setSelectedUser(user)
+    console.log('selectedUserId', selectedUserId)
+    setMessages([]) // Clear messages when changing the selected user
+  }
 
   return (
     <div>
@@ -98,7 +112,7 @@ const Messenger = () => {
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Messenger;
+export default Messenger
