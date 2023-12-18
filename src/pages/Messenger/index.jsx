@@ -3,11 +3,7 @@ import io from 'socket.io-client';
 
 const apiUrl = "http://localhost:4040";
 const socket = io(`${apiUrl}`);
-socket.connect();
-console.log(socket.on("connect",()=>{
-  console.log("connect io")
-}))
- 
+
 const Messenger = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [users, setUsers] = useState([]);
@@ -15,54 +11,53 @@ const Messenger = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
 
-  let currentUserId = currentUser?._id;
-  let selectedUserId = selectedUser?._id;
+  const currentUserId = currentUser?._id;
+  const selectedUserId = selectedUser?._id;
 
-  // Getting users from the database
   const getUsers = async () => {
     try {
-      let local_userInfo = localStorage.getItem('userInfo');
-      let parsedLocal_userInfo = local_userInfo ? JSON.parse(local_userInfo) : null;
-      setCurrentUser(parsedLocal_userInfo?.user);
+      const localUserInfo = localStorage.getItem('userInfo');
+      const parsedLocalUserInfo = localUserInfo ? JSON.parse(localUserInfo) : null;
+      setCurrentUser(parsedLocalUserInfo?.user);
 
-      let resp = await fetch(`${apiUrl}/api/v1/users/get`);
-      resp = await resp.json();
-      const updatedUsers = await resp.filter(user => user?._id !== parsedLocal_userInfo?.user?._id);
+      const response = await fetch(`${apiUrl}/api/v1/users/get`);
+      const userList = await response.json();
+      const updatedUsers = userList.filter(user => user?._id !== parsedLocalUserInfo?.user?._id);
       setUsers(updatedUsers);
     } catch (error) {
-      console.log("Error:", error);
+      console.error("Error:", error);
     }
   };
 
   useEffect(() => {
     getUsers();
-
     // Clean up the socket connection when the component unmounts
     return () => {
-      socket.disconnect();
+      //socket.emit('disconnect');
+      socket.off(); // Turn off all event listeners
     };
   }, []);
 
   useEffect(() => {
-    if (selectedUser?._id) {
-      // Join a room based on the sender and receiver
+    if (selectedUserId) {
       socket.emit('join', { sender: currentUserId, receiver: selectedUserId });
     }
 
-    socket.on('message', (message) => {
-      setMessages([...messages, message]);
-    });
-
-    // Clean up when the user selection changes or component unmounts
-    return () => {
-      socket.emit('leave', { sender: currentUserId, receiver: selectedUserId });
+    const handleIncomingMessage = (message) => {
+      setMessages(prevMessages => [...prevMessages, message]);
     };
-  }, [messages, selectedUser, currentUser]);
+
+    socket.on('message', handleIncomingMessage);
+
+    // Clhen the user selection changes or component unmounts
+    return () => {
+     /* socket.emit('disconnect', { sender: currentUserId, receiver: selectedUserId });
+      socket.off('message', handleIncomingMessage);*/
+    };
+  }, [selectedUserId, currentUserId]);
 
   const sendMessage = () => {
-    if (newMessage.trim() !== '' && selectedUserId) { 
-      console.log("newMessage",newMessage)
-      // Send a message to the specific room
+    if (newMessage.trim() !== '' && selectedUserId) {
       socket.emit('message', { sender: currentUserId, receiver: selectedUserId, text: newMessage });
       setNewMessage('');
     }
@@ -70,7 +65,7 @@ const Messenger = () => {
 
   const handleUserClick = (user) => {
     setSelectedUser(user); 
-    console.log("selectedUser",selectedUserId)
+    console.log("selectedUserId",selectedUserId)
     setMessages([]); // Clear messages when changing the selected user
   };
 
@@ -106,4 +101,4 @@ const Messenger = () => {
   );
 };
 
-export default Messenger; 
+export default Messenger;
